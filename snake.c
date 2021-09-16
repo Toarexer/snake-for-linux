@@ -75,9 +75,9 @@ void move_snake()
     }
 }
 
-bool body_collision(uint x, uint y)
+bool body_collision(uint x, uint y, uint start)
 {
-    for (uint i = 1; i < snake.length; i++)
+    for (uint i = start; i < snake.length; i++)
         if (x == snake.body[i].x && y == snake.body[i].y)
             return true;
     return false;
@@ -165,7 +165,7 @@ int main()
             break;
         }
 
-        if (body_collision(snake.body[0].x, snake.body[0].y))
+        if (body_collision(snake.body[0].x, snake.body[0].y, 1))
         {
             printf("\e[%u;%uH\e[31m\e[5mO\e[0m\n", snake.body[0].y + 1, snake.body[0].x + 1);
             break;
@@ -182,7 +182,7 @@ int main()
                 fruit.x = rand() % (MAP_WIDTH - 2) + 1;
                 srand(fruit.x);
                 fruit.y = rand() % (MAP_HEIGHT - 2) + 1;
-            } while (body_collision(fruit.x, fruit.y));
+            } while (body_collision(fruit.x, fruit.y, 0));
             fruit.cooldown = FRUIT_MAXC;
             fruit.present = true;
         }
