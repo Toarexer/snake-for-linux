@@ -159,7 +159,7 @@ int main()
             draw_score();
         }
 
-        if (map[mappos(snake.body[0].x, snake.body[0].y)] == '#')
+        if (snake.body[0].x == 0 || snake.body[0].y == 0 || snake.body[0].x == MAP_WIDTH - 1 || snake.body[0].y == MAP_HEIGHT - 1)
         {
             printf("\e[%u;%uH\e[31m\e[5m#\e[0m\n", snake.body[0].y + 1, snake.body[0].x + 1);
             break;

@@ -17,7 +17,6 @@
 #define D_RIGHT 3
 #define WAIT_TIME 400
 
-#define mappos(x, y) (x + y * MAP_HEIGHT)
 #define msleep(milisec) usleep(milisec * 1000)
 
 #endif
