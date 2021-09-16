@@ -5,10 +5,11 @@
 #include <pthread.h>
 #include "snake.h"
 
+int speed_mod = 0;
 uint record_score;
 char map[MAP_HEIGHT * MAP_WIDTH];
 char direction = D_UP, next_direction = D_UP;
-bool input_thread_running = true;
+bool stop_game_thread = false;
 
 struct snake_s
 {
@@ -38,6 +39,16 @@ void draw_map()
 
     if (fruit.present)
         printf("\e[%u;%uH\e[91m@\e[0m\n", fruit.y + 1, fruit.x + 1);
+}
+
+void set_snake()
+{
+    snake.length = SNAKE_STARTLEN;
+    for (uint i = 0; i < snake.length; i++)
+    {
+        snake.body[i].x = MAP_WIDTH / 2;
+        snake.body[i].y = MAP_HEIGHT / 2 - snake.length / 2 + i + 1;
+    }
 }
 
 void draw_snake()
@@ -83,70 +94,10 @@ bool body_collision(uint x, uint y, uint start)
     return false;
 }
 
-void *getinput(void *args)
+// game logic and printing thread
+void *game(void *args)
 {
-    while (1)
-    {
-        char c = getchar();
-        if (c == 'q')
-        {
-            input_thread_running = 0;
-            return NULL;
-        }
-        else if (c == 'w' && direction != D_DOWN || c == 'A' && direction != D_DOWN) // UP ARROW KEY
-            next_direction = D_UP;
-        else if (c == 's' && direction != D_UP || c == 'B' && direction != D_UP) // DOWN ARROW KEY
-            next_direction = D_DOWN;
-        else if (c == 'd' && direction != D_LEFT || c == 'C' && direction != D_LEFT) // RIGTH ARROW KEY
-            next_direction = D_RIGHT;
-        else if (c == 'a' && direction != D_RIGHT || c == 'D' && direction != D_RIGHT) // LEFT ARROW KEY
-            next_direction = D_LEFT;
-        else if (c == '+')
-        {
-            snake.length++;
-            draw_score();
-        }
-        else if (c == '-')
-        {
-            snake.length--;
-            draw_score();
-        }
-    }
-}
-
-int main()
-{
-    if (!isatty(STDIN_FILENO))
-    {
-        perror("error: stdin is not a tty!");
-        return -1;
-    }
-
-    FILE *record_file = fopen(".snake_record_score", "r");
-    fscanf(record_file, "%u", &record_score);
-    fclose(record_file);
-
-    struct termios tty_og, tty_raw;
-    tcgetattr(0, &tty_og);
-    cfmakeraw(&tty_raw);
-    tcsetattr(0, TCSANOW, &tty_raw);
-
-    printf("\e[?1049h\e[?25l"); // enable alternative screen buffer and hide cursor
-
-    snake.length = SNAKE_STARTLEN;
-    for (uint i = 0; i < snake.length; i++)
-    {
-        snake.body[i].x = MAP_WIDTH / 2;
-        snake.body[i].y = MAP_HEIGHT / 2 - snake.length / 2 + i + 1;
-    }
-
-    fruit.cooldown = FRUIT_MAXC;
-
-    pthread_t input_thread;
-    pthread_create(&input_thread, NULL, getinput, NULL);
-    draw_score();
-
-    while (input_thread_running)
+    while (!stop_game_thread)
     {
         draw_map();
         move_snake();
@@ -187,10 +138,84 @@ int main()
             fruit.present = true;
         }
 
-        msleep(WAIT_TIME);
+        usleep((WAIT_TIME - speed_mod) * 1000);
+    }
+    return NULL;
+}
+
+// input and setup thread
+int main(int argc, char *argv[])
+{
+    if (!isatty(STDIN_FILENO))
+    {
+        perror("error: stdin is not a tty!");
+        return -1;
     }
 
-    pthread_join(input_thread, NULL);
+    if (argc > 1)
+        speed_mod = atoi(argv[1]); // +1 speed_mod -> -1 milisec delay
+    if (WAIT_TIME - speed_mod <= 0)
+        speed_mod = WAIT_TIME - 1;
+
+    FILE *record_file = fopen(".snake_record_score", "r");
+    fscanf(record_file, "%u", &record_score);
+    fclose(record_file);
+
+    struct termios tty_og, tty_raw;
+    tcgetattr(0, &tty_og);
+    cfmakeraw(&tty_raw);
+    tcsetattr(0, TCSANOW, &tty_raw);
+
+    printf("\e[?1049h\e[?25l"); // enable alternative screen buffer and hide cursor
+
+    fruit.cooldown = FRUIT_MAXC;
+    set_snake();
+
+    pthread_t game_thread;
+    pthread_create(&game_thread, NULL, game, NULL);
+    draw_score();
+
+    while (1)
+    {
+        char c = getchar();
+        if (c == 'q')
+        {
+            stop_game_thread = true;
+            pthread_join(game_thread, NULL);
+            break;
+        }
+        else if (c == 'w' && direction != D_DOWN || c == 'A' && direction != D_DOWN) // UP ARROW KEY
+            next_direction = D_UP;
+        else if (c == 's' && direction != D_UP || c == 'B' && direction != D_UP) // DOWN ARROW KEY
+            next_direction = D_DOWN;
+        else if (c == 'd' && direction != D_LEFT || c == 'C' && direction != D_LEFT) // RIGTH ARROW KEY
+            next_direction = D_RIGHT;
+        else if (c == 'a' && direction != D_RIGHT || c == 'D' && direction != D_RIGHT) // LEFT ARROW KEY
+            next_direction = D_LEFT;
+        else if (c == 'r')
+        {
+            stop_game_thread = true;
+            pthread_join(game_thread, NULL);
+            stop_game_thread = false;
+
+            direction = next_direction = D_UP;
+            fruit.present = false;
+            fruit.cooldown = FRUIT_MAXC;
+            set_snake();
+
+            pthread_create(&game_thread, NULL, game, NULL);
+        }
+        else if (c == '+')
+        {
+            snake.length++;
+            draw_score();
+        }
+        else if (c == '-')
+        {
+            snake.length--;
+            draw_score();
+        }
+    }
 
     record_file = fopen(".snake_record_score", "w");
     fprintf(record_file, "%u", record_score);
@@ -198,5 +223,5 @@ int main()
 
     tcsetattr(0, TCSANOW, &tty_og);
     printf("\e[H\e[J\e[?1049l\e[?25h"); // go to (1;1), clear display, disnable alternative screen buffer and show cursor
-    return 0;
+    return snake.length - SNAKE_STARTLEN;
 }

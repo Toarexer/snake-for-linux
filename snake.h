@@ -15,8 +15,6 @@
 #define D_DOWN 1
 #define D_LEFT 2
 #define D_RIGHT 3
-#define WAIT_TIME 400
-
-#define msleep(milisec) usleep(milisec * 1000)
+#define WAIT_TIME 200
 
 #endif
