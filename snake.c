@@ -32,7 +32,7 @@ void draw_map()
     for (uint y = 0; y < MAP_HEIGHT; y++)
     {
         for (uint x = 0; x < MAP_WIDTH; x++)
-            putchar((y == 0 || y == MAP_HEIGHT - 1 || x == 0 || x == MAP_WIDTH - 1) ? '#' : ' '); // ▒
+            putchar((y == 0 || y == MAP_HEIGHT - 1 || x == 0 || x == MAP_WIDTH - 1) ? '#' : ' ');
         printf("\n\e[G");
     }
 
@@ -66,11 +66,11 @@ void move_snake()
     case D_DOWN:
         snake.body[0].y++;
         return;
-    case D_LEFT:
-        snake.body[0].x--;
-        return;
     case D_RIGHT:
         snake.body[0].x++;
+        return;
+    case D_LEFT:
+        snake.body[0].x--;
         return;
     }
 }
@@ -93,14 +93,14 @@ void *getinput(void *args)
             input_thread_running = 0;
             return NULL;
         }
-        else if (c == 'w' && direction != D_DOWN)
+        else if (c == 'w' && direction != D_DOWN || c == 'A' && direction != D_DOWN) // UP ARROW KEY
             next_direction = D_UP;
-        else if (c == 'a' && direction != D_RIGHT)
-            next_direction = D_LEFT;
-        else if (c == 's' && direction != D_UP)
+        else if (c == 's' && direction != D_UP || c == 'B' && direction != D_UP) // DOWN ARROW KEY
             next_direction = D_DOWN;
-        else if (c == 'd' && direction != D_LEFT)
+        else if (c == 'd' && direction != D_LEFT || c == 'C' && direction != D_LEFT) // RIGTH ARROW KEY
             next_direction = D_RIGHT;
+        else if (c == 'a' && direction != D_RIGHT || c == 'D' && direction != D_RIGHT) // LEFT ARROW KEY
+            next_direction = D_LEFT;
         else if (c == '+')
         {
             snake.length++;
