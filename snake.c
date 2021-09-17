@@ -10,6 +10,8 @@ uint record_score;
 char map[MAP_HEIGHT * MAP_WIDTH];
 char direction = D_UP, next_direction = D_UP;
 bool stop_game_thread = false;
+bool pause_game_thread = false;
+bool wait_for_input = true;
 
 struct snake_s
 {
@@ -38,7 +40,7 @@ void draw_map()
     }
 
     if (fruit.present)
-        printf("\e[%u;%uH\e[91m@\e[0m\n", fruit.y + 1, fruit.x + 1);
+        printf("\e[%u;%uH\e[91m@\e[0m", fruit.y + 1, fruit.x + 1);
 }
 
 void set_snake()
@@ -53,7 +55,7 @@ void set_snake()
 
 void draw_snake()
 {
-    printf("\e[%u;%uH\e[32mV\e[0m\n", snake.body[0].y + 1, snake.body[0].x + 1);
+    printf("\e[%u;%uH\e[32mV\e[0m", snake.body[0].y + 1, snake.body[0].x + 1);
     for (uint i = 1; i < snake.length; i++)
         printf("\e[%u;%uH\e[32mO\e[0m\n", snake.body[i].y + 1, snake.body[i].x + 1);
 }
@@ -62,7 +64,7 @@ void draw_score()
 {
     if (snake.length - SNAKE_STARTLEN > record_score)
         record_score = snake.length - SNAKE_STARTLEN;
-    printf("\e[%u;0HSCORE:  %u\e[%u;0HRECORD: %u\e[H\n", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
+    printf("\e[%u;0HSCORE:  %u\e[%u;0HRECORD: %u\e[H", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
 }
 
 void move_snake()
@@ -97,6 +99,12 @@ bool body_collision(uint x, uint y, uint start)
 // game logic and printing thread
 void *game(void *args)
 {
+    draw_map();
+    draw_snake();
+    printf("\e[%u;%uH\e[33m\e[5mPRESS ANY KEY\e[%u;%uHTO START!\e[0m\n", 3, MAP_WIDTH / 2 - 5, 4, MAP_WIDTH / 2 - 3);
+    while (wait_for_input && !stop_game_thread)
+        usleep(1000);
+
     while (!stop_game_thread)
     {
         draw_map();
@@ -138,8 +146,12 @@ void *game(void *args)
             fruit.present = true;
         }
 
-        usleep((WAIT_TIME - speed_mod) * 1000);
+        do
+            usleep((WAIT_TIME - speed_mod) * 1000);
+        while (pause_game_thread);
     }
+
+    stop_game_thread = true;
     return NULL;
 }
 
@@ -178,23 +190,21 @@ int main(int argc, char *argv[])
     while (1)
     {
         char c = getchar();
+        wait_for_input = false;
         if (c == 'q')
         {
             stop_game_thread = true;
+            pause_game_thread = wait_for_input = false;
             pthread_join(game_thread, NULL);
             break;
         }
-        else if (c == 'w' && direction != D_DOWN || c == 'A' && direction != D_DOWN) // UP ARROW KEY
-            next_direction = D_UP;
-        else if (c == 's' && direction != D_UP || c == 'B' && direction != D_UP) // DOWN ARROW KEY
-            next_direction = D_DOWN;
-        else if (c == 'd' && direction != D_LEFT || c == 'C' && direction != D_LEFT) // RIGTH ARROW KEY
-            next_direction = D_RIGHT;
-        else if (c == 'a' && direction != D_RIGHT || c == 'D' && direction != D_RIGHT) // LEFT ARROW KEY
-            next_direction = D_LEFT;
+        else if (c == 'p' && !stop_game_thread)
+        {
+            if (pause_game_thread = !pause_game_thread)
+                printf("\e[%u;%uH\e[33m\e[5mGAME PAUSED\e[0m", MAP_HEIGHT / 2, MAP_WIDTH / 2 - 4);
+        }
         else if (c == 'r')
         {
-            stop_game_thread = true;
             pthread_join(game_thread, NULL);
             stop_game_thread = false;
 
@@ -205,6 +215,14 @@ int main(int argc, char *argv[])
 
             pthread_create(&game_thread, NULL, game, NULL);
         }
+        else if (c == 'w' && direction != D_DOWN || c == 'A' && direction != D_DOWN) // UP ARROW KEY
+            next_direction = D_UP;
+        else if (c == 's' && direction != D_UP || c == 'B' && direction != D_UP) // DOWN ARROW KEY
+            next_direction = D_DOWN;
+        else if (c == 'd' && direction != D_LEFT || c == 'C' && direction != D_LEFT) // RIGTH ARROW KEY
+            next_direction = D_RIGHT;
+        else if (c == 'a' && direction != D_RIGHT || c == 'D' && direction != D_RIGHT) // LEFT ARROW KEY
+            next_direction = D_LEFT;
         else if (c == '+')
         {
             snake.length++;
