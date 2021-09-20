@@ -13,8 +13,8 @@
 #define FRUIT_MAXC 15U
 #define D_UP 0
 #define D_DOWN 1
-#define D_LEFT 2
-#define D_RIGHT 3
+#define D_RIGHT 2
+#define D_LEFT 3
 #define WAIT_TIME 200
 
 #endif

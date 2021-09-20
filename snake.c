@@ -6,6 +6,7 @@
 #include "snake.h"
 
 int speed_mod = 0;
+long seed;
 uint record_score;
 char map[MAP_HEIGHT * MAP_WIDTH];
 char direction = D_UP, next_direction = D_UP;
@@ -64,7 +65,7 @@ void draw_score()
 {
     if (snake.length - SNAKE_STARTLEN > record_score)
         record_score = snake.length - SNAKE_STARTLEN;
-    printf("\e[%u;0HSCORE:  %u\e[%u;0HRECORD: %u\e[H", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
+    printf("\e[%u;0HSCORE:  %-10u\e[%u;0HRECORD: %u\e[H", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
 }
 
 void move_snake()
@@ -99,6 +100,7 @@ bool body_collision(uint x, uint y, uint start)
 // game logic and printing thread
 void *game(void *args)
 {
+    wait_for_input = true;
     draw_map();
     draw_snake();
     printf("\e[%u;%uH\e[33m\e[5mPRESS ANY KEY\e[%u;%uHTO START!\e[0m\n", 3, MAP_WIDTH / 2 - 5, 4, MAP_WIDTH / 2 - 3);
@@ -137,9 +139,9 @@ void *game(void *args)
             time_t t;
             do
             {
-                srand(time(&t));
+                srand(seed);
                 fruit.x = rand() % (MAP_WIDTH - 2) + 1;
-                srand(fruit.x);
+                srand(seed = fruit.x);
                 fruit.y = rand() % (MAP_HEIGHT - 2) + 1;
             } while (body_collision(fruit.x, fruit.y, 0));
             fruit.cooldown = FRUIT_MAXC;
@@ -181,6 +183,7 @@ int main(int argc, char *argv[])
     printf("\e[?1049h\e[?25l"); // enable alternative screen buffer and hide cursor
 
     fruit.cooldown = FRUIT_MAXC;
+    seed = time(NULL);
     set_snake();
 
     pthread_t game_thread;
@@ -205,6 +208,7 @@ int main(int argc, char *argv[])
         }
         else if (c == 'r')
         {
+            stop_game_thread = true;
             pthread_join(game_thread, NULL);
             stop_game_thread = false;
 
@@ -230,7 +234,8 @@ int main(int argc, char *argv[])
         }
         else if (c == '-')
         {
-            snake.length--;
+            if (snake.length > 4)
+                snake.length--;
             draw_score();
         }
     }
