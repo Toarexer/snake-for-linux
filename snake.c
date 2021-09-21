@@ -1,29 +1,31 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <string.h>
 #include <termios.h>
-#include <pthread.h>
+#include <unistd.h>
 #include "snake.h"
 
 int speed_mod = 0;
 long seed;
 uint record_score;
+char score_path[FILENAME_MAX];
 char map[MAP_HEIGHT * MAP_WIDTH];
 char direction = D_UP, next_direction = D_UP;
 bool stop_game_thread = false;
 bool pause_game_thread = false;
 bool wait_for_input = true;
 
-struct snake_s
+struct
 {
     uint length;
-    struct body_s
+    struct
     {
         uint x, y;
     } body[SNAKE_MAXLEN];
 } snake;
 
-struct fruit_s
+struct
 {
     uint x, y;
     uint cooldown;
@@ -143,6 +145,7 @@ void *game(void *args)
                 fruit.x = rand() % (MAP_WIDTH - 2) + 1;
                 srand(seed = fruit.x);
                 fruit.y = rand() % (MAP_HEIGHT - 2) + 1;
+                seed = fruit.y;
             } while (body_collision(fruit.x, fruit.y, 0));
             fruit.cooldown = FRUIT_MAXC;
             fruit.present = true;
@@ -171,10 +174,18 @@ int main(int argc, char *argv[])
     if (WAIT_TIME - speed_mod <= 0)
         speed_mod = WAIT_TIME - 1;
 
-    FILE *record_file = fopen(".snake_record_score", "r");
+    // adjust score file path to startup path
+    strncpy(score_path, argv[0], FILENAME_MAX);
+    char *fn = ".snake_record_score";
+    char *ls = strrchr(score_path, '/');
+    strcpy(ls ? ls + 1 : score_path, fn);
+
+    // read score from record file, create it if it does not exist
+    FILE *record_file = fopen(score_path, access(score_path, 0) ? "w+" : "r");
     fscanf(record_file, "%u", &record_score);
     fclose(record_file);
 
+    // set terminal to raw mode
     struct termios tty_og, tty_raw;
     tcgetattr(0, &tty_og);
     cfmakeraw(&tty_raw);
@@ -240,7 +251,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    record_file = fopen(".snake_record_score", "w");
+    record_file = fopen(score_path, "w");
     fprintf(record_file, "%u", record_score);
     fclose(record_file);
 
