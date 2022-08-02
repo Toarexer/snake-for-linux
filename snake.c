@@ -73,7 +73,7 @@ void draw_score()
     printf("\e[%u;0HSCORE:  %u\e[%u;0HRECORD: %u\e[H", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
 }
 
-draw_help(bool visible)
+void draw_help(bool visible)
 {
     if (visible)
     {
