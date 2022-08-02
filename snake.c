@@ -67,7 +67,30 @@ void draw_score()
 {
     if (snake.length - SNAKE_STARTLEN > record_score)
         record_score = snake.length - SNAKE_STARTLEN;
-    printf("\e[%u;0HSCORE:  %-10u\e[%u;0HRECORD: %u\e[H", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
+    printf("\e[%u;0H", MAP_HEIGHT + 1);
+    for (int i = 0; i < MAP_WIDTH; i++)
+        putchar(' ');
+    printf("\e[%u;0HSCORE:  %u\e[%u;0HRECORD: %u\e[H", MAP_HEIGHT + 2, snake.length - SNAKE_STARTLEN, MAP_HEIGHT + 3, record_score);
+}
+
+draw_help(bool visible)
+{
+    if (visible)
+    {
+        printf("\e[%u;%uH\e[33m   Controls:", 2, MAP_WIDTH + 1);
+        printf("\e[%u;%uH     Use \e[0m[WASD]\e[33m or the \e[0marrow keys\e[33m to move", 3, MAP_WIDTH + 1);
+        printf("\e[%u;%uH     Press \e[0m[P]\e[33m to pasue and unpause the game", 4, MAP_WIDTH + 1);
+        printf("\e[%u;%uH     Press \e[0m[R]\e[33m to restart the game", 5, MAP_WIDTH + 1);
+        printf("\e[%u;%uH     Press \e[0m[Q]\e[33m to quit from the game\e[0m", 6, MAP_WIDTH + 1);
+    }
+    else
+    {
+        printf("\e[%u;%uH\e[K", 2, MAP_WIDTH + 1);
+        printf("\e[%u;%uH\e[K", 3, MAP_WIDTH + 1);
+        printf("\e[%u;%uH\e[K", 4, MAP_WIDTH + 1);
+        printf("\e[%u;%uH\e[K", 5, MAP_WIDTH + 1);
+        printf("\e[%u;%uH\e[K", 6, MAP_WIDTH + 1);
+    }
 }
 
 void move_snake()
@@ -105,9 +128,11 @@ void *game(void *args)
     wait_for_input = true;
     draw_map();
     draw_snake();
+    draw_help(true);
     printf("\e[%u;%uH\e[33m\e[5mPRESS ANY KEY\e[%u;%uHTO START!\e[0m\n", 3, MAP_WIDTH / 2 - 5, 4, MAP_WIDTH / 2 - 3);
     while (wait_for_input && !stop_game_thread)
         usleep(1000);
+    draw_help(false);
 
     while (!stop_game_thread)
     {
@@ -124,12 +149,14 @@ void *game(void *args)
 
         if (snake.body[0].x == 0 || snake.body[0].y == 0 || snake.body[0].x == MAP_WIDTH - 1 || snake.body[0].y == MAP_HEIGHT - 1)
         {
+            draw_help(true);
             printf("\e[%u;%uH\e[31m\e[5m#\e[0m\n", snake.body[0].y + 1, snake.body[0].x + 1);
             break;
         }
 
         if (body_collision(snake.body[0].x, snake.body[0].y, 1))
         {
+            draw_help(true);
             printf("\e[%u;%uH\e[31m\e[5mO\e[0m\n", snake.body[0].y + 1, snake.body[0].x + 1);
             break;
         }
@@ -175,15 +202,17 @@ int main(int argc, char *argv[])
         speed_mod = WAIT_TIME - 1;
 
     // adjust score file path to startup path
-    strncpy(score_path, argv[0], FILENAME_MAX);
-    char *fn = ".snake_record_score";
-    char *ls = strrchr(score_path, '/');
-    strcpy(ls ? ls + 1 : score_path, fn);
+    char *home = getenv("HOME");
+    if (home != NULL)
+    {
+        strncpy(score_path, home, sizeof(score_path));
+        strncat(score_path, "/.snake_record_score", sizeof(score_path) - strlen(score_path));
 
-    // read score from record file, create it if it does not exist
-    FILE *record_file = fopen(score_path, access(score_path, 0) ? "w+" : "r");
-    fscanf(record_file, "%u", &record_score);
-    fclose(record_file);
+        // read score from record file, create it if it does not exist
+        FILE *record_file = fopen(score_path, access(score_path, 0) ? "w+" : "r");
+        fscanf(record_file, "%u", &record_score);
+        fclose(record_file);
+    }
 
     // set terminal to raw mode
     struct termios tty_og, tty_raw;
@@ -201,7 +230,7 @@ int main(int argc, char *argv[])
     pthread_create(&game_thread, NULL, game, NULL);
     draw_score();
 
-    while (1)
+    while (true)
     {
         char c = getchar();
         wait_for_input = false;
@@ -251,9 +280,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    record_file = fopen(score_path, "w");
-    fprintf(record_file, "%u", record_score);
-    fclose(record_file);
+    if (home != NULL)
+    {
+        FILE *record_file = fopen(score_path, "w");
+        fprintf(record_file, "%u", record_score);
+        fclose(record_file);
+    }
 
     tcsetattr(0, TCSANOW, &tty_og);
     printf("\e[H\e[J\e[?1049l\e[?25h"); // go to (1;1), clear display, disnable alternative screen buffer and show cursor
