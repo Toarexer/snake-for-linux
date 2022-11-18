@@ -288,6 +288,6 @@ int main(int argc, char *argv[])
     }
 
     tcsetattr(0, TCSANOW, &tty_og);
-    printf("\e[H\e[J\e[?1049l\e[?25h"); // go to (1;1), clear display, disnable alternative screen buffer and show cursor
+    printf("\e[H\e[J\e[?1049l\e[?25h"); // go to (1;1), clear display, disable alternative screen buffer and show cursor
     return snake.length - SNAKE_STARTLEN;
 }
